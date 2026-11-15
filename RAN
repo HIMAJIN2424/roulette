@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>5数字演算ルーレット</title>
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+      box-sizing: border-box;
+      font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif;
+      background-color: #1e1e2f;
+      color: #ffffff;
+    }
+
+    #status {
+      font-size: 1.3rem;
+      font-weight: bold;
+      color: #a0a0c0;
+      margin-bottom: 10px;
+      height: 1.6em;
+    }
+
+    /* メインのルーレット表示枠 */
+    #main-roulette {
+      font-size: 6.5rem;
+      font-weight: bold;
+      width: 220px;
+      height: 160px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background-color: #2b2b40;
+      border-radius: 20px;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+      margin: 15px 0 30px 0;
+      transition: transform 0.2s, color 0.2s, background-color 0.2s;
+    }
+
+    .pop {
+      transform: scale(1.1);
+      color: #4cc9f0;
+    }
+
+    .target-decided {
+      transform: scale(1.15);
+      color: #ffbe0b;
+      background-color: #3a2e1f;
+      border: 3px solid #ffbe0b;
+    }
+
+    /* 5つの数字を並べるエリア */
+    .slots-label {
+      font-size: 0.9rem;
+      color: #8888aa;
+      margin-bottom: 8px;
+    }
+
+    #slots-container {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 25px;
+    }
+
+    .slot {
+      width: 52px;
+      height: 68px;
+      background-color: #2b2b40;
+      border: 2px solid #444466;
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      font-size: 1.8rem;
+      font-weight: bold;
+      color: #555577;
+      transition: all 0.3s;
+    }
+
+    .slot span.index {
+      font-size: 0.65rem;
+      color: #8888aa;
+      margin-bottom: 2px;
+    }
+
+    .slot.filled {
+      border-color: #4cc9f0;
+      color: #ffffff;
+      background-color: #32324e;
+    }
+
+    /* ターゲット数字の表示エリア */
+    #target-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      opacity: 0.3;
+      transition: opacity 0.4s;
+    }
+
+    #target-box.active {
+      opacity: 1;
+    }
+
+    #target-value {
+      font-size: 2.5rem;
+      font-weight: bold;
+      color: #ffbe0b;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="status">準備中...</div>
+  <div id="main-roulette">?</div>
+
+  <div class="slots-label">出た順に配置する5つの数字</div>
+  <div id="slots-container">
+    <div class="slot" id="slot-0"><span class="index">1番目</span><span class="val">-</span></div>
+    <div class="slot" id="slot-1"><span class="index">2番目</span><span class="val">-</span></div>
+    <div class="slot" id="slot-2"><span class="index">3番目</span><span class="val">-</span></div>
+    <div class="slot" id="slot-3"><span class="index">4番目</span><span class="val">-</span></div>
+    <div class="slot" id="slot-4"><span class="index">5番目</span><span class="val">-</span></div>
+  </div>
+
+  <div id="target-box">
+    <div class="slots-label">作る数字（+ - × ÷ を各1回使用）</div>
+    <div id="target-value">?</div>
+  </div>
+
+  <script>
+    // ★設定：使う数字の範囲と演出スピード
+    const DIGIT_MIN = 1;       // 0を含める場合は 0 に変更
+    const DIGIT_MAX = 9;       // 1桁の最大値
+    const SPIN_DURATION = 1100; // 1回ごとのルーレット回転時間（ミリ秒）
+    const PAUSE_DURATION = 500; // 数字確定後の余韻時間（ミリ秒）
+
+    // 配列をシャッフルする関数
+    function shuffle(array) {
+      const arr = [...array];
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    // 5つの数字と4つの演算子（+ - × ÷）から有効な問題セットを生成
+    function generateValidPuzzle() {
+      const baseOps = ['+', '-', '×', '÷'];
+
+      while (true) {
+        // 5つの数字を生成
+        const nums = Array.from({ length: 5 }, () =>
+          Math.floor(Math.random() * (DIGIT_MAX - DIGIT_MIN + 1)) + DIGIT_MIN
+        );
+        // 4つの演算子をランダムに並び替え
+        const ops = shuffle(baseOps);
+
+        // 式を組み立てて計算（×と÷を先に計算する通常の四則演算ルール）
+        let calcNums = [...nums];
+        let calcOps = [...ops];
+        let validDivision = true;
+
+        // ステップ1: 掛け算・割り算を左から処理
+        for (let i = 0; i < calcOps.length; i++) {
+          if (calcOps[i] === '×' || calcOps[i] === '÷') {
+            if (calcOps[i] === '÷') {
+              // 0除算、または割り切れない場合はやり直し
+              if (calcNums[i + 1] === 0 || calcNums[i] % calcNums[i + 1] !== 0) {
+                validDivision = false;
+                break;
+              }
+              calcNums[i] = calcNums[i] / calcNums[i + 1];
+            } else {
+              calcNums[i] = calcNums[i] * calcNums[i + 1];
+            }
+            calcNums.splice(i + 1, 1);
+            calcOps.splice(i, 1);
+            i--;
+          }
+        }
+
+        if (!validDivision) continue;
+
+        // ステップ2: 足し算・引き算を左から処理
+        let result = calcNums[0];
+        for (let i = 0; i < calcOps.length; i++) {
+          if (calcOps[i] === '+') {
+            result += calcNums[i + 1];
+          } else {
+            result -= calcNums[i + 1];
+          }
+        }
+
+        // 答えが「1桁〜2桁の正の整数（1〜99）」なら採用
+        if (Number.isInteger(result) && result >= 1 && result <= 99) {
+          return { nums, target: result };
+        }
+      }
+    }
+
+    // 指定した時間だけルーレットを回して確定させる関数
+    function spinRoulette(min, max, finalVal, isTarget = false) {
+      return new Promise((resolve) => {
+        const mainEl = document.getElementById('main-roulette');
+        mainEl.classList.remove('pop', 'target-decided');
+
+        const interval = setInterval(() => {
+          const rand = Math.floor(Math.random() * (max - min + 1)) + min;
+          mainEl.textContent = rand;
+        }, 45);
+
+        setTimeout(() => {
+          clearInterval(interval);
+          mainEl.textContent = finalVal;
+          mainEl.classList.add(isTarget ? 'target-decided' : 'pop');
+          setTimeout(resolve, PAUSE_DURATION);
+        }, SPIN_DURATION);
+      });
+    }
+
+    // メインの進行フロー
+    async function startSequence() {
+      const puzzle = generateValidPuzzle();
+      const statusEl = document.getElementById('status');
+
+      // 1個目〜5個目の数字を順番に抽選
+      for (let i = 0; i < 5; i++) {
+        statusEl.textContent = `${i + 1}個目の数字を抽選中...`;
+        await spinRoulette(DIGIT_MIN, DIGIT_MAX, puzzle.nums[i], false);
+
+        // 下部のスロットに反映
+        const slotEl = document.getElementById(`slot-${i}`);
+        slotEl.querySelector('.val').textContent = puzzle.nums[i];
+        slotEl.classList.add('filled');
+      }
+
+      // 最後にターゲットの数字（1〜99）を抽選
+      statusEl.textContent = '最後に「作る数字」を抽選中...';
+      await spinRoulette(1, 99, puzzle.target, true);
+
+      // ターゲット欄にも表示して完了
+      const targetBox = document.getElementById('target-box');
+      targetBox.classList.add('active');
+      document.getElementById('target-value').textContent = puzzle.target;
+      statusEl.textContent = '抽選完了！演算子を配置して解こう';
+    }
+
+    // ページ読み込みと同時にスタート
+    window.onload = startSequence;
+  </script>
+</body>
+</html>
