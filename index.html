@@ -137,8 +137,8 @@
 
   <script>
     // ★設定：使う数字の範囲と演出スピード
-    const DIGIT_MIN = 1;       // 0を含める場合は 0 に変更
-    const DIGIT_MAX = 9;       // 1桁の最大値
+    const DIGIT_MIN = 1;        // 0を含める場合は 0 に変更
+    const DIGIT_MAX = 9;        // 1桁の最大値
     const SPIN_DURATION = 1100; // 1回ごとのルーレット回転時間（ミリ秒）
     const PAUSE_DURATION = 500; // 数字確定後の余韻時間（ミリ秒）
 
@@ -152,15 +152,21 @@
       return arr;
     }
 
-    // 5つの数字と4つの演算子（+ - × ÷）から有効な問題セットを生成
+    // 重複しない5つの数字と4つの演算子（+ - × ÷）から有効な問題セットを生成
     function generateValidPuzzle() {
       const baseOps = ['+', '-', '×', '÷'];
+      const pool = [];
+      for (let n = DIGIT_MIN; n <= DIGIT_MAX; n++) {
+        pool.push(n);
+      }
+
+      if (pool.length < 5) {
+        throw new Error('DIGIT_MIN〜DIGIT_MAXの範囲に5個以上の数字が必要です');
+      }
 
       while (true) {
-        // 5つの数字を生成
-        const nums = Array.from({ length: 5 }, () =>
-          Math.floor(Math.random() * (DIGIT_MAX - DIGIT_MIN + 1)) + DIGIT_MIN
-        );
+        // 候補プールから重複なしで5つの数字を取り出す
+        const nums = shuffle(pool).slice(0, 5);
         // 4つの演算子をランダムに並び替え
         const ops = shuffle(baseOps);
 
